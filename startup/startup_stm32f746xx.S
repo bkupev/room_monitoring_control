@@ -1,10 +1,10 @@
 /**
   ******************************************************************************
-  * @file      startup_stm32f756xx.s
+  * @file      startup_stm32f746xx.s
   * @author    MCD Application Team
   * @Version    V1.0.2
-  * @Date       18-November-2015
-  * @brief     STM32F756xx Devices vector table for GCC toolchain based application. 
+  * @Date       21-September-2015
+  * @brief     STM32F746xx Devices vector table for GCC based toolchain. 
   *            This module performs:
   *                - Set the initial SP
   *                - Set the initial PC == Reset_Handler,
@@ -44,7 +44,7 @@
   */
     
   .syntax unified
-  .cpu cortex-m4
+  .cpu cortex-m7
   .fpu softvfp
   .thumb
 
@@ -107,7 +107,7 @@ LoopFillZerobss:
   cmp  r2, r3
   bcc  FillZerobss
 
-/* Call the clock system intitialization function.*/
+/* Call the clock system initialization function.*/
   bl  SystemInit   
 /* Call static constructors */
     bl __libc_init_array
@@ -130,7 +130,7 @@ Infinite_Loop:
   .size  Default_Handler, .-Default_Handler
 /******************************************************************************
 *
-* The minimal vector table for a Cortex M3. Note that the proper constructs
+* The minimal vector table for a Cortex M7. Note that the proper constructs
 * must be placed on this to ensure that it ends up at physical address
 * 0x0000.0000.
 * 
@@ -239,8 +239,8 @@ g_pfnVectors:
   .word     OTG_HS_WKUP_IRQHandler            /* USB OTG HS Wakeup through EXTI */                         
   .word     OTG_HS_IRQHandler                 /* USB OTG HS                   */                   
   .word     DCMI_IRQHandler                   /* DCMI                         */                   
-  .word     CRYP_IRQHandler                   /* Crypto                       */                   
-  .word     HASH_RNG_IRQHandler               /* Hash and Rng                 */
+  .word     0                                 /* Reserved                     */                   
+  .word     RNG_IRQHandler                    /* Rng                          */
   .word     FPU_IRQHandler                    /* FPU                          */
   .word     UART7_IRQHandler                  /* UART7                        */      
   .word     UART8_IRQHandler                  /* UART8                        */
@@ -533,11 +533,8 @@ g_pfnVectors:
    .weak      DCMI_IRQHandler            
    .thumb_set DCMI_IRQHandler,Default_Handler
 
-   .weak      CRYP_IRQHandler            
-   .thumb_set CRYP_IRQHandler,Default_Handler
-
-   .weak      HASH_RNG_IRQHandler            
-   .thumb_set HASH_RNG_IRQHandler,Default_Handler   
+   .weak      RNG_IRQHandler            
+   .thumb_set RNG_IRQHandler,Default_Handler   
 
    .weak      FPU_IRQHandler                  
    .thumb_set FPU_IRQHandler,Default_Handler
