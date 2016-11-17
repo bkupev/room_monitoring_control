@@ -583,8 +583,6 @@ int main(void)
 		while(1);
 	}
 
-	//BSP_TS_ITConfig();
-
 	// Initialise ST LCD Driver
 	/* Initialize the LCD */
 	lcd_status = BSP_LCD_Init();
