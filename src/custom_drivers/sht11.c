@@ -14,104 +14,13 @@ TIM_HandleTypeDef    TimHandle;
 uint32_t ms_counter = 0;
 uint32_t us_counter = 0;
 
-void ConfigTimer(void)
-{
-  uint32_t uwPrescalerValue;
-
-  /*##-1- Configure the TIM peripheral #######################################*/
-  /* -----------------------------------------------------------------------
-	In this example TIM3 input clock (TIM3CLK)  is set to APB1 clock (PCLK1) x2,
-	since APB1 prescaler is equal to 4.
-	  TIM3CLK = PCLK1*2
-	  PCLK1 = HCLK/4
-	  => TIM3CLK = HCLK/2 = SystemCoreClock/2
-	To get TIM3 counter clock at 10 KHz, the Prescaler is computed as follows:
-	Prescaler = (TIM3CLK / TIM3 counter clock) - 1
-	Prescaler = ((SystemCoreClock/2) /1 KHz) - 1
-
-	Note:
-	 SystemCoreClock variable holds HCLK frequency and is defined in system_stm32f7xx.c file.
-	 Each time the core clock (HCLK) changes, user had to update SystemCoreClock
-	 variable value. Otherwise, any configuration based on this variable will be incorrect.
-	 This variable is updated in three ways:
-	  1) by calling CMSIS function SystemCoreClockUpdate()
-	  2) by calling HAL API function HAL_RCC_GetSysClockFreq()
-	  3) each time HAL_RCC_ClockConfig() is called to configure the system clock frequency
-  ----------------------------------------------------------------------- */
-
-  /* Set TIMx instance */
-  TimHandle.Instance = TIM3;
-  SystemCoreClockUpdate();
-
-  /* Initialize TIMx peripheral as follows:
-	   + Period = 1000 - 1
-	   + Prescaler = ((SystemCoreClock / 2)/1000000) - 1
-	   + ClockDivision = 0
-	   + Counter direction = Up
-  */
-
-  /* Compute the prescaler value to have TIMx counter clock equal to 1000 Hz */
-  uwPrescalerValue = (uint32_t)((SystemCoreClock / 2) / 1000) - 1;
-
-  TimHandle.Init.Period            = 1000 - 1;
-  TimHandle.Init.Prescaler         = uwPrescalerValue;
-  TimHandle.Init.ClockDivision     = 0;
-  TimHandle.Init.CounterMode       = TIM_COUNTERMODE_UP;
-  TimHandle.Init.RepetitionCounter = 0;
-
-  if (HAL_TIM_Base_Init(&TimHandle) != HAL_OK)
-  {
-	/* Initialization Error */
-	while(1);
-  }
-
-  /*##-2- Start the TIM Base generation in interrupt mode ####################*/
-  /* Start Channel1 */
-  if (HAL_TIM_Base_Start_IT(&TimHandle) != HAL_OK)
-  {
-	/* Starting Error */
-	while(1);
-  }
-}
-
-/* User can use this section to tailor TIMx instance used and associated
-   resources */
-/* Definition for TIMx clock resources */
-#define TIMx                           TIM3
-#define TIMx_CLK_ENABLE()              __HAL_RCC_TIM3_CLK_ENABLE()
-
-
-/**
-  * @brief TIM MSP Initialization
-  *        This function configures the hardware resources used in this example:
-  *           - Peripheral's clock enable
-  * @param htim: TIM handle pointer
-  * @retval None
-  */
-void HAL_TIM_Base_MspInit(TIM_HandleTypeDef *htim)
-{
-  /*##-1- Enable peripheral clock #################################*/
-  /* TIMx Peripheral clock enable */
-  TIMx_CLK_ENABLE();
-
-  /*##-2- Configure the NVIC for TIMx ########################################*/
-  /* Set the TIMx priority */
-  HAL_NVIC_SetPriority(TIMx_IRQn, 3, 0);
-
-  /* Enable the TIMx global Interrupt */
-  HAL_NVIC_EnableIRQ(TIMx_IRQn);
-}
-
-/**
-  * @brief  Period elapsed callback in non blocking mode
-  * @param  htim : TIM handle
-  * @retval None
-  */
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
-{
-  us_counter++;
-}
-
+/*
+ * ************************************************
+ * ************************************************
+ * HW Abstraction for SHT communication pins START
+ * ************************************************
+ * ************************************************
+ */
 void SHT11_Config(void)
 {
 	GPIO_InitTypeDef gpio_init_structure;
@@ -144,7 +53,6 @@ void SHT11_Config(void)
 
   HAL_GPIO_WritePin(GPIOI, GPIO_PIN_1, GPIO_PIN_RESET); // Default state of the CLK pin should be SET
 
-  //ConfigTimer();
 }
 
 static void delay_us(uint32_t us_delay)
@@ -156,23 +64,12 @@ static void delay_us(uint32_t us_delay)
 	while (us_counter != us_delay);
 }
 
-static void delay_ms(uint32_t ms_delay)
-{
-	uint32_t cnt;
-	for (cnt = 0; cnt < 1000000; cnt++);
-	return;
-
-	us_counter = 0;
-	while ((us_counter/1000) != ms_delay);
-}
-
-
-
 static uint8_t SHT11_ReadDataPin(void)
 {
 	return (HAL_GPIO_ReadPin(SHT11_DATA_PORT, SHT11_DATA_PIN));
 }
-void SHT11_SetPin(uint8_t pin_select)
+
+static void SHT11_SetPin(uint8_t pin_select)
 {
 	if (pin_select == SHT11_DATA)
 	{
@@ -199,6 +96,13 @@ static void SHT11_ClearPin(uint8_t pin_select)
 		while(1);
 	}
 }
+/*
+ * ************************************************
+ * ************************************************
+ * HW Abstraction for SHT communication pins END
+ * ************************************************
+ * ************************************************
+ */
 
 static uint8_t SHT11_Ack(void)
 {
@@ -284,7 +188,6 @@ static uint32_t SHT11_ReadBits(uint8_t nr_bits)
 {
 	uint8_t clk_cnt;
 	uint32_t data_out = 0;
-	uint8_t crc = 0;
 
 	SHT11_SetPin(SHT11_DATA); // Keep pin released for reading
 
@@ -333,7 +236,6 @@ static uint32_t SHT11_ReadBits(uint8_t nr_bits)
 static uint32_t SHT11_Measure(uint8_t cmd)
 {
 	uint32_t timer;
-	uint32_t result;
 
 	SHT11_TransmissionStart();
 	if (SHT11_SendCMD(cmd) != 0)

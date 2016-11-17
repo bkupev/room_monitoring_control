@@ -22,6 +22,7 @@
 
 #include "./custom_drivers/sht11.h"
 #include "custom_font.h"
+#include "heater_drive.h"
 
 #define ASSERT (void)
 
@@ -34,6 +35,7 @@
 #define RTC_ASYNCH_PREDIV  0x7F   /* LSE as RTC clock */
 #define RTC_SYNCH_PREDIV   0x00FF /* LSE as RTC clock */
 
+#define	PID_PERIOD		100 // 100 Sec
 /**
   * @brief  LCD FB_StartAddress
   * LCD Frame buffer start address : starts at beginning of SDRAM
@@ -164,7 +166,7 @@ static void ShowTempHumidityTime(float Temp, float Humid, RTC_TimeTypeDef RTC_Ti
 	BSP_LCD_SetTextColor(LCD_COLOR_WHITE);
 	BSP_LCD_SetFont(&LCD_DEFAULT_FONT);
 
-	BSP_LCD_DisplayStringAt(0, 0, "Temperature:", LEFT_MODE);
+	BSP_LCD_DisplayStringAt(0, 0, (uint8_t*)"Temperature:", LEFT_MODE);
 	StartX = 0;
 	StartX += LCD_DrawChar(StartX, TEMP_Y_POSITION, ((((uint32_t)Temp)%100)/10));
 	StartX += LCD_DrawChar(StartX, TEMP_Y_POSITION, ((((uint32_t)Temp)%10)/1));
@@ -179,7 +181,7 @@ static void ShowTempHumidityTime(float Temp, float Humid, RTC_TimeTypeDef RTC_Ti
 		BSP_LCD_SetTextColor(LCD_COLOR_WHITE);
 	}
 
-	BSP_LCD_DisplayStringAt(0, 90, "Humidity:", LEFT_MODE);
+	BSP_LCD_DisplayStringAt(0, 90, (uint8_t*)"Humidity:", LEFT_MODE);
 	StartX = 0;
 	StartX += LCD_DrawChar(StartX, HUM_Y_POSITION, ((((uint32_t)Humid)%100)/10));
 	StartX += LCD_DrawChar(StartX, HUM_Y_POSITION, ((((uint32_t)Humid)%10)/1));
@@ -194,7 +196,7 @@ static void ShowTempHumidityTime(float Temp, float Humid, RTC_TimeTypeDef RTC_Ti
 		BSP_LCD_SetTextColor(LCD_COLOR_WHITE);
 	}
 
-	BSP_LCD_DisplayStringAt(0, 180, "Time:", LEFT_MODE);
+	BSP_LCD_DisplayStringAt(0, 180, (uint8_t*)"Time:", LEFT_MODE);
 	StartX = 0;
 	StartX += LCD_DrawChar(StartX, TIME_Y_POSITION, (RTC_Time.Hours >> 4));
 	StartX += LCD_DrawChar(StartX, TIME_Y_POSITION, (RTC_Time.Hours & 0x0F));
@@ -214,38 +216,8 @@ static void ShowDiagram (uint32_t MinY, uint32_t MaxY, uint32_t Ypos, float *dat
 {
 	uint32_t i;
 	uint32_t MinY_R, MaxY_R;
-	Point rectangle[5];
 	char text[10];
 
-	/*
-	= {
-			{220, 262},
-			{470, 262},
-			{470, 162},
-			{220, 162},
-			{220, 262}
-	};
-
-	Point t_rectangle[]= {
-			{220, 152},
-			{470, 152},
-			{470, 52},
-			{220, 52},
-			{220, 152}
-	};
-
-	rectangle[0].X = 220;
-	rectangle[0].Y = Ypos;
-	rectangle[1].X = 470;
-	rectangle[1].Y = Ypos;
-	rectangle[2].X = 470;
-	rectangle[2].Y = Ypos - 100;
-	rectangle[3].X = 220;
-	rectangle[3].Y = Ypos - 100;
-	rectangle[4].X = 220;
-	rectangle[4].Y = Ypos;
-
-*/
 	BSP_LCD_SetTextColor(LCD_COLOR_WHITE);
 	BSP_LCD_DrawVLine(200, 0, 272);
 	BSP_LCD_DrawVLine(201, 0, 272);
@@ -279,17 +251,17 @@ static void ShowDiagram (uint32_t MinY, uint32_t MaxY, uint32_t Ypos, float *dat
 	BSP_LCD_SetFont(&Font12);
 	Ypos -=6; // FontSize / 2
 
-	snprintf(text, 10, "%d", MinY_R);
+	snprintf(text, 10, "%lu", MinY_R);
 	BSP_LCD_DisplayStringAt(205, Ypos, (uint8_t *)text, LEFT_MODE);
-	snprintf(text, 10, "%d", (MinY_R + ((1*(MaxY_R - MinY_R))/5)) );
+	snprintf(text, 10, "%lu", (MinY_R + ((1*(MaxY_R - MinY_R))/5)) );
 	BSP_LCD_DisplayStringAt(205, Ypos - 20, (uint8_t *)text, LEFT_MODE);
-	snprintf(text, 10, "%d", (MinY_R + ((2*(MaxY_R - MinY_R))/5)) );
+	snprintf(text, 10, "%lu", (MinY_R + ((2*(MaxY_R - MinY_R))/5)) );
 	BSP_LCD_DisplayStringAt(205, Ypos - 40, (uint8_t *)text, LEFT_MODE);
-	snprintf(text, 10, "%d", (MinY_R + ((3*(MaxY_R - MinY_R))/5)) );
+	snprintf(text, 10, "%lu", (MinY_R + ((3*(MaxY_R - MinY_R))/5)) );
 	BSP_LCD_DisplayStringAt(205, Ypos - 60, (uint8_t *)text, LEFT_MODE);
-	snprintf(text, 10, "%d", (MinY_R + ((4*(MaxY_R - MinY_R))/5)) );
+	snprintf(text, 10, "%lu", (MinY_R + ((4*(MaxY_R - MinY_R))/5)) );
 	BSP_LCD_DisplayStringAt(205, Ypos - 80, (uint8_t *)text, LEFT_MODE);
-	snprintf(text, 10, "%d", MaxY_R);
+	snprintf(text, 10, "%lu", MaxY_R);
 	BSP_LCD_DisplayStringAt(205, Ypos - 100, (uint8_t *)text, LEFT_MODE);
 
 	Ypos += 6;
@@ -305,10 +277,17 @@ static void ShowDiagram (uint32_t MinY, uint32_t MaxY, uint32_t Ypos, float *dat
 #define BTN_TIME_M_DECADE	3
 #define BTN_TIME_M_DIGIT	4
 
-#define TIME_SET_SPACING	40
-
 #define BTN_ENTER			5
 #define BTN_CANCEL			6
+
+#define BTN_TEMP_DECADE		7
+#define BTN_TEMP_DIGIT		8
+#define BTN_TEMP_FRACTION	9
+#define	BTN_TEMP_ENTER		10
+
+
+#define TIME_SET_SPACING	40
+
 
 typedef struct {
 	uint32_t	AreaID;
@@ -318,19 +297,25 @@ typedef struct {
 	uint32_t	BottomY;
 }TouchArea;
 
-void EnterEditScreen(void)
+void EnterEditScreen(float *set_temp_p)
 {
 	RTC_TimeTypeDef 	Time;
 	uint32_t			StartX;
 	uint32_t			i;
 	uint8_t				ExitEditScreen = 0;
-	char				string[20];
+	float				tempSetTemp = *set_temp_p;
 	TouchArea			BtnArea[] = {
+										/* For the time settings */
 										{BTN_TIME_H_DECADE, 0, (TIME_SET_SPACING - 1), 30, 80},
 										{BTN_TIME_H_DIGIT, (TIME_SET_SPACING), ((TIME_SET_SPACING * 2) - 1), 30, 80},
 										{BTN_TIME_M_DECADE, (TIME_SET_SPACING * 3), ((TIME_SET_SPACING * 4) - 1), 30, 80},
 										{BTN_TIME_M_DIGIT, (TIME_SET_SPACING * 4), ((TIME_SET_SPACING * 5) - 1), 30, 80},
-										{BTN_ENTER, (TIME_SET_SPACING * 5), ((TIME_SET_SPACING * 6) - 1), 30, 80}
+										{BTN_ENTER, (TIME_SET_SPACING * 5), ((TIME_SET_SPACING * 6) - 1), 30, 80},
+										/* For the temperature setting */
+										{BTN_TEMP_DECADE, 0, (TIME_SET_SPACING - 1), 100, 150},
+										{BTN_TEMP_DIGIT, (TIME_SET_SPACING), ((TIME_SET_SPACING * 2) - 1), 100, 150},
+										{BTN_TEMP_FRACTION, (TIME_SET_SPACING * 3), ((TIME_SET_SPACING * 4) - 1), 100, 150},
+										{BTN_TEMP_ENTER, (TIME_SET_SPACING * 4), ((TIME_SET_SPACING * 5) - 1), 100, 150},
 									 };
 
 	/* Get the RTC current Time */
@@ -344,7 +329,7 @@ void EnterEditScreen(void)
 	while (!ExitEditScreen)
 	{
 		BSP_LCD_SetTextColor(LCD_COLOR_WHITE);
-		BSP_LCD_DisplayStringAt(0, 0, "Time:", LEFT_MODE);
+		BSP_LCD_DisplayStringAt(0, 0, (uint8_t*)"Time:", LEFT_MODE);
 		StartX = 0;
 		LCD_DrawChar(StartX, 30, (Time.Hours >> 4));
 		StartX += TIME_SET_SPACING;
@@ -362,6 +347,22 @@ void EnterEditScreen(void)
 		StartX += TIME_SET_SPACING;
 		LCD_DrawChar(StartX, 30, CUSTOM_CHAR_EMPTY);
 
+		// TEMPERATURE
+		BSP_LCD_DisplayStringAt(0, 0, (uint8_t*)"Temperature:", LEFT_MODE);
+		StartX = 0;
+		LCD_DrawChar(StartX, 100, (uint8_t)(tempSetTemp / 10));
+		StartX += TIME_SET_SPACING;
+		LCD_DrawChar(StartX, 100, ((uint8_t)tempSetTemp) % 10);
+
+		StartX += TIME_SET_SPACING;
+		StartX += TIME_SET_SPACING/2;
+		LCD_DrawChar(StartX, 100, CUSTOM_CHAR_DOT);
+		StartX += TIME_SET_SPACING/2;
+		LCD_DrawChar(StartX, 100, ((uint32_t)(tempSetTemp * 10)) % 10);
+		StartX += TIME_SET_SPACING;
+		LCD_DrawChar(StartX, 100, CUSTOM_CHAR_T);
+		StartX += TIME_SET_SPACING;
+		LCD_DrawChar(StartX, 100, CUSTOM_CHAR_EMPTY);
 #if(1)
 		for (i = 0; i < (sizeof(BtnArea)/sizeof(TouchArea)); i++)
 		{
@@ -381,16 +382,8 @@ void EnterEditScreen(void)
 
 		if (TS_State.touchDetected)
 		{
-			BSP_LCD_DisplayStringAt(10, 100, "TouchEvent:", LEFT_MODE);
-			sprintf(string, "%d", TS_State.touchEventId[0]);
-			BSP_LCD_DisplayStringAt(10, 130, string, LEFT_MODE);
-
 			if (TS_State.touchEventId[0] == TOUCH_EVENT_PRESS_DOWN)
 			{
-				BSP_LCD_DisplayStringAt(10, 150, "Touch Coord:", LEFT_MODE);
-				sprintf(string, "X=%d, Y=%d", TS_State.touchX[0], TS_State.touchY[0]);
-				BSP_LCD_DisplayStringAt(10, 180, string, LEFT_MODE);
-
 				for (i = 0; i < (sizeof(BtnArea)/sizeof(TouchArea)); i++)
 				if ( (BtnArea[i].LeftX < TS_State.touchX[0]) && (BtnArea[i].RightX > TS_State.touchX[0]) && \
 					 (BtnArea[i].TopY < TS_State.touchY[0]) && ((BtnArea[i].BottomY) > TS_State.touchY[0]) )
@@ -455,6 +448,34 @@ void EnterEditScreen(void)
 							ExitEditScreen = 1;
 							break;
 
+						case BTN_TEMP_DECADE: 	   // Code
+							if ((((uint8_t)tempSetTemp)/10) == 4){
+								tempSetTemp -= 40;
+							}else {
+								tempSetTemp += 10;
+							}
+							break;
+						case BTN_TEMP_DIGIT: 	   // Code
+							if ((((uint8_t)tempSetTemp) % 10) == 9) {
+								tempSetTemp -= 9;
+							} else {
+								tempSetTemp += 1;
+							}
+							break;
+						case BTN_TEMP_FRACTION: 	   // Code
+							if ((((uint32_t)(tempSetTemp * 10)) % 10) == 9) {
+								tempSetTemp -= 0.9;
+							} else {
+								tempSetTemp += 0.1;
+							}
+							break;
+						case BTN_TEMP_ENTER: 	   // Code
+							*set_temp_p = tempSetTemp;
+							ExitEditScreen = 1;
+							break;
+
+
+
 						default: 				// Code
 												break;
 					}
@@ -487,6 +508,7 @@ int main(void)
 {
 	uint8_t  		lcd_status = LCD_OK;
 	uint8_t  		status = 0;
+	char			string[20];
 
 	uint32_t 		count;
 	float 			temperature_record[MAX_RECORD];
@@ -501,11 +523,16 @@ int main(void)
 	float 			MinRh = 100;
 	RTC_TimeTypeDef	RTC_Time;
 	RTC_DateTypeDef	RTC_Date;
+	float			SetTemperature = 24.7;
+	uint8_t			OldSec = 0;
+	uint32_t		PID_Timer = 0;
+
 	/* Enable the CPU Cache */
 	CPU_CACHE_Enable();
 
 	HAL_Init();
 	SystemClock_Config();
+	init_heater_drive();
 
 	 /*##-1- Configure the RTC peripheral #######################################*/
 	  /* Configure RTC prescaler and RTC data registers */
@@ -624,9 +651,32 @@ int main(void)
 			ShowDiagram (MinRh, MaxRh, 255, rh_record, (record_position - 1));
 		}
 
+		if (RTC_Time.Seconds != OldSec)
+		{
+			OldSec = RTC_Time.Seconds;
+			if (++PID_Timer == PID_PERIOD)
+			{
+				PID_Timer = 0;
+				//poll_pid();
+			}
+		}
+		if (1 == poll_heater_drive(SetTemperature, measured_temperature)) {
+			// Heater on
+			BSP_LCD_SetTextColor(LCD_COLOR_RED);
+		} else {
+			BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+		}
+
+		BSP_LCD_FillCircle(420, 10, 7);
+
+		BSP_LCD_SetTextColor(LCD_COLOR_LIGHTCYAN);
+		BSP_LCD_SetFont(&LCD_DEFAULT_FONT);
+		sprintf(string, "S_TEMP:%.1f", SetTemperature);
+		BSP_LCD_DisplayStringAt(215, 0, (uint8_t*)string, LEFT_MODE);
+
 		BSP_LCD_SetTextColor(LCD_COLOR_WHITE);
 		BSP_LCD_SetFont(&LCD_DEFAULT_FONT);
-		BSP_LCD_DisplayStringAt(450, 0, "@", LEFT_MODE);
+		BSP_LCD_DisplayStringAt(450, 0, (uint8_t*)"@", LEFT_MODE);
 
 		BSP_TS_GetState(&TS_State);
 		if(TS_State.touchDetected)
@@ -634,7 +684,7 @@ int main(void)
 			if ( (TS_SETUP_BTN_X < TS_State.touchX[0]) && ((TS_SETUP_BTN_X + 50) > TS_State.touchX[0]) && \
 				 (TS_SETUP_BTN_Y < TS_State.touchY[0]) && ((TS_SETUP_BTN_Y + 50) > TS_State.touchY[0]) )
 			{
-				EnterEditScreen();
+				EnterEditScreen(&SetTemperature);
 
 			}
 		}
