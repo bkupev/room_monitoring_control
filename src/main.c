@@ -23,6 +23,7 @@
 #include "./custom_drivers/sht11.h"
 #include "custom_font.h"
 #include "heater_drive.h"
+#include "edit_screen.h"
 
 #define ASSERT (void)
 
@@ -46,14 +47,12 @@ uint32_t old_ms_counter = 0xFFFFFFFF;
 /* RTC handler declaration */
 RTC_HandleTypeDef RtcHandle;
 
-/* Touch Screen state */
-static TS_StateTypeDef  TS_State;
-#define TS_SETUP_BTN_X		450
-#define TS_SETUP_BTN_Y		0
-
 /* Buffers used for displaying Time and Date */
 uint8_t aShowTime[50] = {0};
 uint8_t aShowDate[50] = {0};
+
+#define TS_SETUP_BTN_X		450
+#define TS_SETUP_BTN_Y		0
 
 static void RTC_CalendarConfig(void)
 {
@@ -272,225 +271,7 @@ static void ShowDiagram (uint32_t MinY, uint32_t MaxY, uint32_t Ypos, float *dat
 	}
 }
 
-#define BTN_TIME_H_DECADE	1
-#define BTN_TIME_H_DIGIT	2
-#define BTN_TIME_M_DECADE	3
-#define BTN_TIME_M_DIGIT	4
 
-#define BTN_ENTER			5
-#define BTN_CANCEL			6
-
-#define BTN_TEMP_DECADE		7
-#define BTN_TEMP_DIGIT		8
-#define BTN_TEMP_FRACTION	9
-#define	BTN_TEMP_ENTER		10
-
-
-#define TIME_SET_SPACING	40
-
-
-typedef struct {
-	uint32_t	AreaID;
-	uint32_t	LeftX;
-	uint32_t	RightX;
-	uint32_t	TopY;
-	uint32_t	BottomY;
-}TouchArea;
-
-void EnterEditScreen(float *set_temp_p)
-{
-	RTC_TimeTypeDef 	Time;
-	uint32_t			StartX;
-	uint32_t			i;
-	uint8_t				ExitEditScreen = 0;
-	float				tempSetTemp = *set_temp_p;
-	TouchArea			BtnArea[] = {
-										/* For the time settings */
-										{BTN_TIME_H_DECADE, 0, (TIME_SET_SPACING - 1), 30, 80},
-										{BTN_TIME_H_DIGIT, (TIME_SET_SPACING), ((TIME_SET_SPACING * 2) - 1), 30, 80},
-										{BTN_TIME_M_DECADE, (TIME_SET_SPACING * 3), ((TIME_SET_SPACING * 4) - 1), 30, 80},
-										{BTN_TIME_M_DIGIT, (TIME_SET_SPACING * 4), ((TIME_SET_SPACING * 5) - 1), 30, 80},
-										{BTN_ENTER, (TIME_SET_SPACING * 5), ((TIME_SET_SPACING * 6) - 1), 30, 80},
-										/* For the temperature setting */
-										{BTN_TEMP_DECADE, 0, (TIME_SET_SPACING - 1), 100, 150},
-										{BTN_TEMP_DIGIT, (TIME_SET_SPACING), ((TIME_SET_SPACING * 2) - 1), 100, 150},
-										{BTN_TEMP_FRACTION, (TIME_SET_SPACING * 3), ((TIME_SET_SPACING * 4) - 1), 100, 150},
-										{BTN_TEMP_ENTER, (TIME_SET_SPACING * 4), ((TIME_SET_SPACING * 5) - 1), 100, 150},
-									 };
-
-	/* Get the RTC current Time */
-	HAL_RTC_GetTime(&RtcHandle, &Time, RTC_FORMAT_BCD);
-	Time.DayLightSaving = RTC_DAYLIGHTSAVING_NONE;
-	Time.StoreOperation = RTC_STOREOPERATION_SET;
-
-
-	BSP_LCD_Clear(LCD_COLOR_BLACK);
-
-	while (!ExitEditScreen)
-	{
-		BSP_LCD_SetTextColor(LCD_COLOR_WHITE);
-		BSP_LCD_DisplayStringAt(0, 0, (uint8_t*)"Time:", LEFT_MODE);
-		StartX = 0;
-		LCD_DrawChar(StartX, 30, (Time.Hours >> 4));
-		StartX += TIME_SET_SPACING;
-		LCD_DrawChar(StartX, 30, ( Time.Hours & 0x0F));
-
-		StartX += TIME_SET_SPACING;
-		StartX += TIME_SET_SPACING/2;
-		LCD_DrawChar(StartX, 30, CUSTOM_CHAR_COLON);
-		StartX += TIME_SET_SPACING/2;
-		LCD_DrawChar(StartX, 30, (Time.Minutes >> 4));
-		StartX += TIME_SET_SPACING;
-		LCD_DrawChar(StartX, 30, ( Time.Minutes & 0x0F));
-		StartX += TIME_SET_SPACING;
-		LCD_DrawChar(StartX, 30, CUSTOM_CHAR_T);
-		StartX += TIME_SET_SPACING;
-		LCD_DrawChar(StartX, 30, CUSTOM_CHAR_EMPTY);
-
-		// TEMPERATURE
-		BSP_LCD_DisplayStringAt(0, 0, (uint8_t*)"Temperature:", LEFT_MODE);
-		StartX = 0;
-		LCD_DrawChar(StartX, 100, (uint8_t)(tempSetTemp / 10));
-		StartX += TIME_SET_SPACING;
-		LCD_DrawChar(StartX, 100, ((uint8_t)tempSetTemp) % 10);
-
-		StartX += TIME_SET_SPACING;
-		StartX += TIME_SET_SPACING/2;
-		LCD_DrawChar(StartX, 100, CUSTOM_CHAR_DOT);
-		StartX += TIME_SET_SPACING/2;
-		LCD_DrawChar(StartX, 100, ((uint32_t)(tempSetTemp * 10)) % 10);
-		StartX += TIME_SET_SPACING;
-		LCD_DrawChar(StartX, 100, CUSTOM_CHAR_T);
-		StartX += TIME_SET_SPACING;
-		LCD_DrawChar(StartX, 100, CUSTOM_CHAR_EMPTY);
-#if(1)
-		for (i = 0; i < (sizeof(BtnArea)/sizeof(TouchArea)); i++)
-		{
-			BSP_LCD_DrawLine(BtnArea[i].LeftX, BtnArea[i].TopY, BtnArea[i].RightX, BtnArea[i].TopY);
-			BSP_LCD_DrawLine(BtnArea[i].RightX, BtnArea[i].TopY, BtnArea[i].RightX, BtnArea[i].BottomY);
-			BSP_LCD_DrawLine(BtnArea[i].RightX, BtnArea[i].BottomY, BtnArea[i].LeftX, BtnArea[i].BottomY);
-			BSP_LCD_DrawLine(BtnArea[i].RightX, BtnArea[i].BottomY, BtnArea[i].RightX, BtnArea[i].TopY);
-		}
-#endif
-
-		BSP_TS_GetState(&TS_State);
-		if (TS_State.gestureId)
-		{
-			while(1);
-		}
-
-
-		if (TS_State.touchDetected)
-		{
-			if (TS_State.touchEventId[0] == TOUCH_EVENT_PRESS_DOWN)
-			{
-				for (i = 0; i < (sizeof(BtnArea)/sizeof(TouchArea)); i++)
-				if ( (BtnArea[i].LeftX < TS_State.touchX[0]) && (BtnArea[i].RightX > TS_State.touchX[0]) && \
-					 (BtnArea[i].TopY < TS_State.touchY[0]) && ((BtnArea[i].BottomY) > TS_State.touchY[0]) )
-				{
-					switch (BtnArea[i].AreaID)
-					{
-						case BTN_TIME_H_DECADE: // Code
-							if ((Time.Hours >> 4) == 2) {
-								Time.Hours = (Time.Hours & 0x0F);
-							} else {
-								Time.Hours = Time.Hours + (1 << 4);
-							}
-							break;
-						case BTN_TIME_H_DIGIT: // Code
-							if ((Time.Hours >> 4) == 2)
-							{
-								if ((Time.Hours & 0x0F) == 3) {
-									Time.Hours = (Time.Hours & 0xF0);
-								} else {
-									Time.Hours = Time.Hours + 1;
-								}
-							} else {
-								if ((Time.Hours & 0x0F) == 9) {
-									Time.Hours = (Time.Hours & 0xF0);
-								} else {
-									Time.Hours = Time.Hours + 1;
-								}
-							}
-							break;
-						case BTN_TIME_M_DECADE: // Code
-							if ((Time.Minutes >> 4) == 5) {
-								Time.Minutes = (Time.Minutes & 0x0F);
-							} else {
-								Time.Minutes = Time.Minutes + (1 << 4);
-							}
-							break;
-						case BTN_TIME_M_DIGIT: // Code
-							if ((Time.Minutes & 0x0F) == 9) {
-								Time.Minutes = (Time.Minutes & 0xF0);
-							} else {
-								Time.Minutes = Time.Minutes + 1;
-							}
-							break;
-						case BTN_ENTER:		   // Code
-							if ((Time.Hours >> 4) == 2)
-							{
-								if ((Time.Hours & 0x0F) > 3)
-								{
-									Time.Hours = (Time.Hours & 0xF0);
-								}
-							}
-							Time.Seconds = 0;
-							Time.TimeFormat = RTC_HOURFORMAT12_PM;
-							Time.DayLightSaving = RTC_DAYLIGHTSAVING_NONE ;
-							Time.StoreOperation = RTC_STOREOPERATION_SET;
-							HAL_RTC_SetTime(&RtcHandle, &Time, RTC_FORMAT_BCD);
-							HAL_RTCEx_BKUPWrite(&RtcHandle, RTC_BKP_DR0, 0x32F2);
-
-							ExitEditScreen = 1;
-							break;
-						case BTN_CANCEL: 	   // Code
-							ExitEditScreen = 1;
-							break;
-
-						case BTN_TEMP_DECADE: 	   // Code
-							if ((((uint8_t)tempSetTemp)/10) == 4){
-								tempSetTemp -= 40;
-							}else {
-								tempSetTemp += 10;
-							}
-							break;
-						case BTN_TEMP_DIGIT: 	   // Code
-							if ((((uint8_t)tempSetTemp) % 10) == 9) {
-								tempSetTemp -= 9;
-							} else {
-								tempSetTemp += 1;
-							}
-							break;
-						case BTN_TEMP_FRACTION: 	   // Code
-							if ((((uint32_t)(tempSetTemp * 10)) % 10) == 9) {
-								tempSetTemp -= 0.9;
-							} else {
-								tempSetTemp += 0.1;
-							}
-							break;
-						case BTN_TEMP_ENTER: 	   // Code
-							*set_temp_p = tempSetTemp;
-							ExitEditScreen = 1;
-							break;
-
-
-
-						default: 				// Code
-												break;
-					}
-
-				}
-
-				BSP_LCD_SetTextColor(LCD_COLOR_LIGHTRED);
-				BSP_LCD_FillCircle(TS_State.touchX[0], TS_State.touchY[0], 10);
-				for(i=0; i<1000000; i++);
-			}
-		}
-	}
-	BSP_LCD_Clear(LCD_COLOR_BLACK);
-
-}
 /**
   * @brief  CPU L1-Cache enable.
   * @param  None
@@ -509,6 +290,9 @@ int main(void)
 	uint8_t  		lcd_status = LCD_OK;
 	uint8_t  		status = 0;
 	char			string[20];
+
+	/* Touch Screen state */
+	static TS_StateTypeDef  TS_State;
 
 	uint32_t 		count;
 	float 			temperature_record[MAX_RECORD];
@@ -669,7 +453,7 @@ int main(void)
 
 		BSP_LCD_SetTextColor(LCD_COLOR_LIGHTCYAN);
 		BSP_LCD_SetFont(&LCD_DEFAULT_FONT);
-		sprintf(string, "S_TEMP:%.1f", SetTemperature);
+		snprintf(string, 20, "S_TEMP:%.1f", SetTemperature);
 		BSP_LCD_DisplayStringAt(215, 0, (uint8_t*)string, LEFT_MODE);
 
 		BSP_LCD_SetTextColor(LCD_COLOR_WHITE);
@@ -682,7 +466,7 @@ int main(void)
 			if ( (TS_SETUP_BTN_X < TS_State.touchX[0]) && ((TS_SETUP_BTN_X + 50) > TS_State.touchX[0]) && \
 				 (TS_SETUP_BTN_Y < TS_State.touchY[0]) && ((TS_SETUP_BTN_Y + 50) > TS_State.touchY[0]) )
 			{
-				EnterEditScreen(&SetTemperature);
+				EnterEditScreen(RtcHandle, &SetTemperature);
 
 			}
 		}

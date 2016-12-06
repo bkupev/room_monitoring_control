@@ -28,7 +28,7 @@ uint8_t poll_heater_drive(float set_temperature, float measured_temperature)
 {
 	static uint8_t drive_status = 0; // Default is OFF
 
-	if (measured_temperature < (set_temperature - 0.1))
+	if (measured_temperature < (set_temperature))
 	{
 		drive_status = 1; // Drive ON
 	}
