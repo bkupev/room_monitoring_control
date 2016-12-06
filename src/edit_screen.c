@@ -191,12 +191,12 @@ void EnterEditScreen(RTC_HandleTypeDef RtcHandle, float *set_temp_p)
 							default:
 								break;
 						}
-
 					}
-
 					BSP_LCD_SetTextColor(LCD_COLOR_LIGHTRED);
-					BSP_LCD_FillCircle(TS_State.touchX[0], TS_State.touchY[0], 10);
-					for(i=0; i<10000000; i++);
+					if ((TS_State.touchX[0] > 15) && (TS_State.touchY[0] > 15) && (TS_State.touchX[0] < (BSP_LCD_GetXSize() - 15)) && (TS_State.touchY[0] > (BSP_LCD_GetXSize() - 15))) {
+						BSP_LCD_FillCircle(TS_State.touchX[0], TS_State.touchY[0], 10);
+					}
+					for(i=0; i<5000000; i++);
 				}
 			}
 		}
