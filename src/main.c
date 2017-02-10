@@ -51,7 +51,7 @@ RTC_HandleTypeDef RtcHandle;
 uint8_t aShowTime[50] = {0};
 uint8_t aShowDate[50] = {0};
 
-#define TS_SETUP_BTN_X		450
+#define TS_SETUP_BTN_X		420
 #define TS_SETUP_BTN_Y		0
 
 static void RTC_CalendarConfig(void)
