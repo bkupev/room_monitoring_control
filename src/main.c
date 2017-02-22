@@ -7,7 +7,7 @@
   * @brief   Default main function.
   ******************************************************************************
 */
-
+//#define USE_SHT11
 
 //#include "stm32f7xx.h"
 //#include "stm32746g_discovery.h"
@@ -20,14 +20,12 @@
 #include "stm32746g_discovery_lcd.h"
 #include "stm32746g_discovery_sdram.h"
 
-#include "./custom_drivers/sht11.h"
+#include "./custom_drivers/sensor_hal.h"
 #include "custom_font.h"
 #include "heater_drive.h"
 #include "edit_screen.h"
 
 #define ASSERT (void)
-
-#define USE_SHT11
 
 #define MAX_RECORD	250
 
@@ -53,6 +51,15 @@ uint8_t aShowDate[50] = {0};
 
 #define TS_SETUP_BTN_X		420
 #define TS_SETUP_BTN_Y		0
+
+#ifdef USE_SHT11
+ext_sensor_t *sensor_p = (ext_sensor_t *)&sht11_sensor;
+void *context_p;
+/*
+#else
+error NO_SENSOR_DEFINED!!!
+*/
+#endif
 
 static void RTC_CalendarConfig(void)
 {
@@ -356,9 +363,12 @@ int main(void)
 	  }
 
 #ifdef USE_SHT11
-	// Init SHT11 sensor
-	SHT11_Config();
-#endif //#ifdef USE_SHT11
+	// Init sensor
+	if (0 != sensor_p->init_sensor(context_p))
+	{
+		while(1);
+	}
+#endif
 
 	// Initialize TouchScreen
 	status = BSP_TS_Init(BSP_LCD_GetXSize(), BSP_LCD_GetYSize());
@@ -390,8 +400,8 @@ int main(void)
 	while(1)
 	{
 #ifdef USE_SHT11
-		measured_temperature = SHT11_MeasureTemperature();
-		measured_rh = SHT11_Measure_RH();
+		measured_temperature = sensor_p->get_value(context_p, PARAM_TEMPERATURE);
+		measured_rh = sensor_p->get_value(context_p, PARAM_HUMIDITY);;
 #else
 		measured_temperature = 24.5;
 		measured_rh = 78.4;

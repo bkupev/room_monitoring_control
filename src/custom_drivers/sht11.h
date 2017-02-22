@@ -23,10 +23,10 @@
 #define CMD_WR_STATUS		0x06
 #define	CMD_SOFT_RESET		0x1E
 
-void SHT11_Config(void);
-double SHT11_Measure_RH(void);
-double SHT11_MeasureTemperature(void);
-uint32_t SHT11_ReadStatus(void);
-uint32_t SHT11_WriteStatus(uint8_t new_value);
+//void SHT11_Config(void);
+//double SHT11_Measure_RH(void);
+//double SHT11_MeasureTemperature(void);
+//uint32_t SHT11_ReadStatus(void);
+//uint32_t SHT11_WriteStatus(uint8_t new_value);
 
 #endif /* CUSTOM_DRIVERS_SHT11_H_ */

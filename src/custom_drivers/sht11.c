@@ -5,8 +5,9 @@
  *      Author: blagoj.kupev
  */
 #include "stm32f7xx_hal.h"
-#include "sht11.h"
 #include "main.h"
+#include "sensor_hal.h"
+#include "sht11.h"
 
 /* TIM handle declaration */
 TIM_HandleTypeDef    TimHandle;
@@ -48,7 +49,7 @@ const uint8_t CRC_Table[256] = {0, 49, 98, 83, 196, 245, 166, 151, 185, 136, \
  * ************************************************
  * ************************************************
  */
-void SHT11_Config(void)
+static void SHT11_Config(void)
 {
 	GPIO_InitTypeDef gpio_init_structure;
 
@@ -369,7 +370,20 @@ static uint32_t SHT11_Measure(uint8_t cmd)
 	return(0xFFFFFFF0);
 }
 
-double SHT11_Measure_RH(void)
+static double SHT11_MeasureTemperature(void)
+{
+	uint32_t temp_res;
+
+	temp_res = SHT11_Measure(CMD_MEASURE_TEMP);
+
+	if (temp_res == 0xFFFFFFFF) {
+		return (99.9);
+	} else {
+		return (-39.65+(0.01*temp_res));
+	}
+}
+
+static double SHT11_Measure_RH(void)
 {
 	double RH_Linear, RH_True, RH_Captured;
 	uint32_t temp_res;
@@ -388,20 +402,7 @@ double SHT11_Measure_RH(void)
 	return (RH_True);
 }
 
-double SHT11_MeasureTemperature(void)
-{
-	uint32_t temp_res;
-
-	temp_res = SHT11_Measure(CMD_MEASURE_TEMP);
-
-	if (temp_res == 0xFFFFFFFF) {
-		return (99.9);
-	} else {
-		return (-39.65+(0.01*temp_res));
-	}
-}
-
-uint32_t SHT11_ReadStatus(void)
+static uint32_t SHT11_ReadStatus(void)
 {
 	SHT11_TransmissionStart();
 	if (SHT11_SendCMD(CMD_RD_STATUS) != 0)
@@ -413,7 +414,7 @@ uint32_t SHT11_ReadStatus(void)
 	return (SHT11_ReadBits(8));
 }
 
-uint32_t SHT11_WriteStatus(uint8_t new_value)
+static uint32_t SHT11_WriteStatus(uint8_t new_value)
 {
 	SHT11_TransmissionStart();
 	if (SHT11_SendCMD(CMD_WR_STATUS) != 0)
@@ -431,4 +432,25 @@ uint32_t SHT11_WriteStatus(uint8_t new_value)
 	return (0); //SUCCESS
 }
 
+static uint8_t sht11_init(void **ctx_pp)
+{
+	*ctx_pp = (void*)0;
+	SHT11_Config();
+	return 0;
+}
 
+static double sht11_get_value(void **ctx_pp, param_t parameter)
+{
+	switch (parameter)
+	{
+		case PARAM_TEMPERATURE: return SHT11_MeasureTemperature();
+		case PARAM_HUMIDITY: return SHT11_Measure_RH();
+		default: return (99);// displays error state
+	}
+}
+
+ext_sensor_t sht11_sensor = {
+	sht11_init,
+	sht11_get_value,
+	(void*)(0),
+};
