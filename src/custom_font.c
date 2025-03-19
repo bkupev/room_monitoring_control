@@ -50,6 +50,7 @@ uint8_t Tahoma39x49[] = {
 };
 
 // Minor cleanup
+// Additional move on branch
 static uint32_t Height, Width, Spacing;
 static uint8_t *Matrix_p;
 
