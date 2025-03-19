@@ -49,17 +49,16 @@ uint8_t Tahoma39x49[] = {
 
 };
 
-
-
+// Minor cleanup
 static uint32_t Height, Width, Spacing;
 static uint8_t *Matrix_p;
 
 void LCD_SelectFont(uint32_t FontHeight, uint32_t FontWidth, uint32_t CharSpacing, uint8_t *FontMatrix_p)
 {
-	Height = FontHeight;
-	Width = FontWidth;
-	Spacing = CharSpacing;
-	Matrix_p = FontMatrix_p;
+	Height = 	FontHeight;
+	Width = 	FontWidth;
+	Spacing = 	CharSpacing;
+	Matrix_p = 	FontMatrix_p;
 }
 
 uint32_t LCD_DrawChar(uint32_t Xpos, uint32_t Ypos, uint8_t nr_to_display)
